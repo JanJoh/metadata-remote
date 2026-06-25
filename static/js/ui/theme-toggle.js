@@ -119,7 +119,7 @@
                 const logoPath = this.currentTheme === this.LIGHT_THEME ? 
                     '/static/mdrm-logo-light-theme.png' : 
                     '/static/mdrm-logo-dark-theme.png';
-                logo.src = logoPath;
+                logo.src = window.MetadataRemote.ingressUrl(logoPath);
             }
             
             // Update state

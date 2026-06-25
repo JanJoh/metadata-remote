@@ -85,7 +85,7 @@
                     ? `/stream/wav/${encodeURIComponent(filepath)}`
                     : `/stream/${encodeURIComponent(filepath)}`;
                 
-                this.audioPlayer.src = streamUrl;
+                this.audioPlayer.src = window.MetadataRemote.ingressUrl(streamUrl);
                 this.audioPlayer.play()
                     .then(() => {
                         button.classList.remove('loading');

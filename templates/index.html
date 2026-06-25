@@ -420,6 +420,10 @@
         </div>
     </div>
   
+    <!-- Home Assistant ingress base path (empty when accessed directly) -->
+    <script>window.INGRESS_PATH = {{ request.script_root | tojson }};</script>
+    <script src="{{ url_for('static', filename='js/ingress.js') }}"></script>
+
     <!-- Core modules -->
     <script src="{{ url_for('static', filename='js/state.js') }}"></script>
     <script src="{{ url_for('static', filename='js/api.js') }}"></script>

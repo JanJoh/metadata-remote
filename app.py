@@ -83,6 +83,21 @@ app.wsgi_app = ProxyFix(
     x_prefix=1    # Trust 1 proxy for X-Forwarded-Prefix
 )
 
+# Home Assistant ingress: HA proxies the add-on under a base path and sends that
+# path in the X-Ingress-Path header (not X-Forwarded-Prefix). Translate it into
+# SCRIPT_NAME so url_for() and generated links include the ingress base path.
+class _IngressMiddleware:
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+
+    def __call__(self, environ, start_response):
+        ingress_path = environ.get('HTTP_X_INGRESS_PATH')
+        if ingress_path:
+            environ['SCRIPT_NAME'] = ingress_path
+        return self.wsgi_app(environ, start_response)
+
+app.wsgi_app = _IngressMiddleware(app.wsgi_app)
+
 # Configure proper SIGTERM handling for graceful shutdown
 def signal_handler(sig, frame):
     logger.info('Received shutdown signal, cleaning up...')
