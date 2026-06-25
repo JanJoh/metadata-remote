@@ -196,12 +196,59 @@
                     <div class="new-field-form" id="new-field-form" style="display: none;">
                         <div class="form-group">
                             <label for="new-field-name">Field name</label>
-                            <input type="text" 
-                                   id="new-field-name" 
+                            <input type="text"
+                                   id="new-field-name"
+                                   list="known-field-names"
                                    placeholder="e.g., RATING, MOOD"
                                    pattern="[A-Za-z0-9_]+"
                                    title="Only letters, numbers, and underscores allowed"
                                    maxlength="50">
+                            <!-- Suggestions of well-known tag names. Free text is
+                                 still allowed; these only autocomplete. -->
+                            <datalist id="known-field-names">
+                                <!-- Credits / people -->
+                                <option value="PERFORMER"></option>
+                                <option value="CONDUCTOR"></option>
+                                <option value="REMIXER"></option>
+                                <option value="LYRICIST"></option>
+                                <option value="ARRANGER"></option>
+                                <option value="ENGINEER"></option>
+                                <option value="PRODUCER"></option>
+                                <!-- Release / catalog -->
+                                <option value="LABEL"></option>
+                                <option value="ORGANIZATION"></option>
+                                <option value="CATALOGNUMBER"></option>
+                                <option value="BARCODE"></option>
+                                <option value="ISRC"></option>
+                                <option value="COPYRIGHT"></option>
+                                <option value="MEDIA"></option>
+                                <option value="RELEASECOUNTRY"></option>
+                                <option value="ORIGINALDATE"></option>
+                                <!-- Content / descriptive -->
+                                <option value="COMMENT"></option>
+                                <option value="LYRICS"></option>
+                                <option value="GROUPING"></option>
+                                <option value="MOOD"></option>
+                                <option value="BPM"></option>
+                                <option value="INITIALKEY"></option>
+                                <option value="LANGUAGE"></option>
+                                <option value="COMPILATION"></option>
+                                <option value="SUBTITLE"></option>
+                                <option value="DISCSUBTITLE"></option>
+                                <!-- Classical -->
+                                <option value="WORK"></option>
+                                <option value="MOVEMENTNAME"></option>
+                                <option value="MOVEMENTNUMBER"></option>
+                                <!-- Identifiers / ReplayGain -->
+                                <option value="MUSICBRAINZ_TRACKID"></option>
+                                <option value="MUSICBRAINZ_ALBUMID"></option>
+                                <option value="MUSICBRAINZ_ARTISTID"></option>
+                                <option value="ACOUSTID_ID"></option>
+                                <option value="REPLAYGAIN_TRACK_GAIN"></option>
+                                <option value="REPLAYGAIN_ALBUM_GAIN"></option>
+                                <option value="REPLAYGAIN_TRACK_PEAK"></option>
+                                <option value="REPLAYGAIN_ALBUM_PEAK"></option>
+                            </datalist>
                         </div>
                         <div class="form-group">
                             <label for="new-field-value">Content</label>

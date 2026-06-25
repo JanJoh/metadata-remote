@@ -670,9 +670,9 @@
         },
         
         shouldAlwaysShowField(field) {
-            // Optionally always show certain fields even if empty
-            // Only show fields that actually exist
-            return false;
+            // Always show the standard fields (even when empty) so they can be
+            // added to files that don't have them yet.
+            return standardFields.includes(field);
         },
         
         renderStandardField(container, field, info, value) {
