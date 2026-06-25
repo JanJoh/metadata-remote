@@ -96,7 +96,7 @@ def add_security_headers(response):
     """Add security headers and cache-control headers"""
     # Security headers for all responses
     response.headers['X-Content-Type-Options'] = 'nosniff'
-    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
     response.headers['X-XSS-Protection'] = '1; mode=block'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     
@@ -112,7 +112,7 @@ def add_security_headers(response):
         "object-src 'none'; "
         "base-uri 'self'; "
         "form-action 'self'; "
-        "frame-ancestors 'none';"
+        "frame-ancestors 'self';"
     )
     response.headers['Content-Security-Policy'] = csp
     
