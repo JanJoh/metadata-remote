@@ -663,7 +663,11 @@ class MutagenHandler:
                         tag = audio_file.tags[tag_name]
                         if hasattr(tag, 'text'):
                             # ID3 text frames
-                            metadata[field] = str(tag.text[0]) if tag.text else ''
+                            if field == 'genre':
+                                # Genre may hold multiple values (ID3 TCON .text list)
+                                metadata[field] = self._join_multi_value(tag.text)
+                            else:
+                                metadata[field] = str(tag.text[0]) if tag.text else ''
                         else:
                             metadata[field] = str(tag[0]) if tag else ''
         
@@ -765,7 +769,11 @@ class MutagenHandler:
                         tag = audio_file.tags[tag_name]
                         if hasattr(tag, 'text'):
                             # ID3 text frames
-                            value = str(tag.text[0]) if tag.text else ''
+                            if field == 'genre':
+                                # Genre may hold multiple values (ID3 TCON .text list)
+                                value = self._join_multi_value(tag.text)
+                            else:
+                                value = str(tag.text[0]) if tag.text else ''
                         else:
                             value = str(tag[0]) if tag else ''
                         if value:  # Only include non-empty values
@@ -1111,7 +1119,8 @@ class MutagenHandler:
                     elif tag_name == 'TDRC':
                         audio_file.tags[tag_name] = TDRC(encoding=3, text=value)
                     elif tag_name == 'TCON':
-                        audio_file.tags[tag_name] = TCON(encoding=3, text=value)
+                        # Genre is written as a proper multi-value TCON frame
+                        audio_file.tags[tag_name] = TCON(encoding=3, text=self._split_multi_value(value))
                     elif tag_name == 'TRCK':
                         audio_file.tags[tag_name] = TRCK(encoding=3, text=value)
                     elif tag_name == 'TPOS':
