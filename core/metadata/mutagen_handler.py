@@ -639,22 +639,32 @@ class MutagenHandler:
             for field, atom in tag_map.items():
                 if atom in audio_file:
                     value = audio_file[atom]
-                    if isinstance(value, list):
+                    if field == 'genre' and isinstance(value, list):
+                        # Genre may hold multiple values
+                        value = self._join_multi_value(value)
+                    elif isinstance(value, list):
                         value = value[0]
                     # Special handling for track/disc tuples
                     if field in ['track', 'disc'] and isinstance(value, tuple):
                         value = str(value[0]) if value[0] else ''
                     metadata[field] = str(value)
-        
+
         elif isinstance(audio_file, ASF):
             # WMA/ASF
             for field, tag_name in tag_map.items():
                 if tag_name in audio_file:
                     value = audio_file[tag_name]
-                    if isinstance(value, list):
-                        value = value[0]
-                    metadata[field] = str(value.value) if hasattr(value, 'value') else str(value)
-        
+                    if field == 'genre' and isinstance(value, list):
+                        # Genre may hold multiple values
+                        value = self._join_multi_value(
+                            v.value if hasattr(v, 'value') else v for v in value
+                        )
+                    else:
+                        if isinstance(value, list):
+                            value = value[0]
+                        value = value.value if hasattr(value, 'value') else value
+                    metadata[field] = str(value)
+
         elif isinstance(audio_file, WAVE):
             # WAV uses ID3 tags in Mutagen
             if hasattr(audio_file, 'tags') and audio_file.tags:
@@ -676,11 +686,14 @@ class MutagenHandler:
             for field, tag_name in tag_map.items():
                 if tag_name in audio_file:
                     value = audio_file[tag_name]
+                    if field == 'genre':
+                        # APEv2 text values may hold multiple values
+                        value = self._join_multi_value(list(value))
                     # APEv2 tags can be lists
-                    if isinstance(value, list):
+                    elif isinstance(value, list):
                         value = value[0] if value else ''
                     metadata[field] = str(value)
-        
+
         # Normalize single spaces to empty strings for UI display
         normalized_metadata = {}
         for field, value in metadata.items():
@@ -742,25 +755,34 @@ class MutagenHandler:
             for field, atom in tag_map.items():
                 if atom in audio_file:
                     value = audio_file[atom]
-                    if isinstance(value, list):
+                    if field == 'genre' and isinstance(value, list):
+                        # Genre may hold multiple values
+                        value = self._join_multi_value(value)
+                    elif isinstance(value, list):
                         value = value[0]
                     # Special handling for track/disc tuples
                     if field in ['track', 'disc'] and isinstance(value, tuple):
                         value = str(value[0]) if value[0] else ''
                     if value:  # Only include non-empty values
                         metadata[field] = str(value)
-        
+
         elif isinstance(audio_file, ASF):
             # WMA/ASF
             for field, tag_name in tag_map.items():
                 if tag_name in audio_file:
                     value = audio_file[tag_name]
-                    if isinstance(value, list):
-                        value = value[0]
-                    value_str = str(value.value) if hasattr(value, 'value') else str(value)
+                    if field == 'genre' and isinstance(value, list):
+                        # Genre may hold multiple values
+                        value_str = self._join_multi_value(
+                            v.value if hasattr(v, 'value') else v for v in value
+                        )
+                    else:
+                        if isinstance(value, list):
+                            value = value[0]
+                        value_str = str(value.value) if hasattr(value, 'value') else str(value)
                     if value_str:  # Only include non-empty values
                         metadata[field] = value_str
-        
+
         elif isinstance(audio_file, WAVE):
             # WAV uses ID3 tags in Mutagen
             if hasattr(audio_file, 'tags') and audio_file.tags:
@@ -784,12 +806,15 @@ class MutagenHandler:
             for field, tag_name in tag_map.items():
                 if tag_name in audio_file:
                     value = audio_file[tag_name]
+                    if field == 'genre':
+                        # APEv2 text values may hold multiple values
+                        value = self._join_multi_value(list(value))
                     # APEv2 tags can be lists
-                    if isinstance(value, list):
+                    elif isinstance(value, list):
                         value = value[0] if value else ''
                     if value:  # Only include non-empty values
                         metadata[field] = str(value)
-        
+
         # Normalize single spaces to empty strings for UI display
         normalized_metadata = {}
         for field, value in metadata.items():
@@ -1032,6 +1057,9 @@ class MutagenHandler:
                             audio_file[atom] = [(disc_num, total)]
                         except:
                             audio_file[atom] = [value]
+                    elif field == 'genre':
+                        # Genre is written as multiple values
+                        audio_file[atom] = self._split_multi_value(value)
                     else:
                         audio_file[atom] = [value]
                 
@@ -1066,12 +1094,16 @@ class MutagenHandler:
                     # Normalize composer text
                     if field == 'composer' and value:
                         value = self.normalize_composer_text(value)
-                    
+
                     if not value:
                         value = ' '
-                    
-                    audio_file[tag_name] = value
-                
+
+                    if field == 'genre':
+                        # Genre is written as multiple values
+                        audio_file[tag_name] = self._split_multi_value(value)
+                    else:
+                        audio_file[tag_name] = value
+
                 # Handle custom fields - ASF uses WM/ prefix for extended attributes
                 for field, value in custom_fields.items():
                     if field in ['art', 'removeArt']:
@@ -1188,12 +1220,16 @@ class MutagenHandler:
                     # Normalize composer text
                     if field == 'composer' and value:
                         value = self.normalize_composer_text(value)
-                    
+
                     if not value:
                         value = ' '
-                    
-                    audio_file[tag_name] = value
-                
+
+                    if field == 'genre':
+                        # Genre is written as multiple values
+                        audio_file[tag_name] = self._split_multi_value(value)
+                    else:
+                        audio_file[tag_name] = value
+
                 # Handle custom fields - APEv2 tags are straightforward
                 for field, value in custom_fields.items():
                     if field in ['art', 'removeArt']:
