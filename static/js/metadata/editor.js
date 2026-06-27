@@ -687,7 +687,12 @@
                 fieldElement = `<input type="text" id="${field}" placeholder="${info.placeholder}" 
                                       data-field="${field}" value="${escapeHtml(value || '')}" readonly data-editing="false">`;
             }
-            
+
+            // Hint for multi-value fields (genre supports several values separated by "; ")
+            const fieldHint = field === 'genre'
+                ? `<div class="field-hint">Separate multiple genres with "; " (e.g. Pop; Dance; Eurodance)</div>`
+                : '';
+
             const fieldHtml = `
                 <div class="form-group-with-button standard-field">
                     <div class="form-group-wrapper">
@@ -706,6 +711,7 @@
                             </div>
                             <div class="inference-suggestions" id="${field}-suggestions"></div>
                         </div>
+                        ${fieldHint}
                     </div>
                     <div class="apply-field-controls" data-field="${field}">
                         <span class="apply-field-label">Apply to</span>

@@ -553,7 +553,31 @@ class MutagenHandler:
         except Exception as e:
             logger.error(f"Error detecting format for {filepath}: {e}")
             return None, 'unknown'
-    
+
+    # Separator used to join/split multi-value tags (e.g. genre) for display/editing
+    MULTI_VALUE_SEPARATOR = '; '
+
+    def _join_multi_value(self, values) -> str:
+        """Join multiple tag values into a single display string.
+
+        Used for multi-value tags like genre so the UI can show every value
+        in a single text input separated by '; '.
+        """
+        if values is None:
+            return ''
+        return self.MULTI_VALUE_SEPARATOR.join(str(v) for v in values if str(v) != '')
+
+    def _split_multi_value(self, value):
+        """Split a display string on ';' into a list of values for writing.
+
+        Returns a list so multi-value tags (e.g. genre) are written as
+        separate values. Falls back to the original value (e.g. the ' '
+        placeholder) when no real content remains.
+        """
+        parts = [p.strip() for p in str(value).split(';')]
+        parts = [p for p in parts if p]
+        return parts if parts else [str(value)]
+
     def read_metadata(self, filepath: str) -> Dict[str, Any]:
         """
         Read metadata from audio file using Mutagen
@@ -586,9 +610,13 @@ class MutagenHandler:
             # MP3 uses ID3 tags
             for field, tag_name in tag_map.items():
                 if tag_name in audio_file:
-                    value = str(audio_file[tag_name][0]) if audio_file[tag_name] else ''
+                    if field == 'genre':
+                        # Genre may hold multiple values (ID3 TCON .text list)
+                        value = self._join_multi_value(audio_file[tag_name].text)
+                    else:
+                        value = str(audio_file[tag_name][0]) if audio_file[tag_name] else ''
                     metadata[field] = value
-        
+
         elif isinstance(audio_file, (OggVorbis, OggOpus, FLAC)):
             # These use Vorbis comments
             for field, tag_name in tag_map.items():
@@ -599,7 +627,11 @@ class MutagenHandler:
                     value = audio_file[tag_name]
                     # Vorbis comments can be lists
                     if isinstance(value, list):
-                        value = value[0] if value else ''
+                        if field == 'genre':
+                            # Genre may hold multiple Vorbis Comment values
+                            value = self._join_multi_value(value)
+                        else:
+                            value = value[0] if value else ''
                     metadata[field] = str(value)
         
         elif isinstance(audio_file, MP4):
@@ -675,10 +707,14 @@ class MutagenHandler:
             # MP3 uses ID3 tags
             for field, tag_name in tag_map.items():
                 if tag_name in audio_file:
-                    value = str(audio_file[tag_name][0]) if audio_file[tag_name] else ''
+                    if field == 'genre':
+                        # Genre may hold multiple values (ID3 TCON .text list)
+                        value = self._join_multi_value(audio_file[tag_name].text)
+                    else:
+                        value = str(audio_file[tag_name][0]) if audio_file[tag_name] else ''
                     if value:  # Only include non-empty values
                         metadata[field] = value
-        
+
         elif isinstance(audio_file, (OggVorbis, OggOpus, FLAC)):
             # These use Vorbis comments
             for field, tag_name in tag_map.items():
@@ -689,7 +725,11 @@ class MutagenHandler:
                     value = audio_file[tag_name]
                     # Vorbis comments can be lists
                     if isinstance(value, list):
-                        value = value[0] if value else ''
+                        if field == 'genre':
+                            # Genre may hold multiple Vorbis Comment values
+                            value = self._join_multi_value(value)
+                        else:
+                            value = value[0] if value else ''
                     if value:  # Only include non-empty values
                         metadata[field] = str(value)
         
@@ -853,7 +893,8 @@ class MutagenHandler:
                     elif tag_name == 'TDRC':
                         audio_file.tags[tag_name] = TDRC(encoding=3, text=value)
                     elif tag_name == 'TCON':
-                        audio_file.tags[tag_name] = TCON(encoding=3, text=value)
+                        # Genre is written as a proper multi-value TCON frame
+                        audio_file.tags[tag_name] = TCON(encoding=3, text=self._split_multi_value(value))
                     elif tag_name == 'TRCK':
                         audio_file.tags[tag_name] = TRCK(encoding=3, text=value)
                     elif tag_name == 'TPOS':
@@ -930,6 +971,9 @@ class MutagenHandler:
                     # Mutagen still removes them on save. Use space placeholder.
                     if not value:
                         audio_file[tag_name] = ' '
+                    elif field == 'genre':
+                        # Genre is written as multiple genre Vorbis Comment values
+                        audio_file[tag_name] = self._split_multi_value(value)
                     else:
                         audio_file[tag_name] = value
                 

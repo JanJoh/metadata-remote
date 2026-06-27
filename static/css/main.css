@@ -2174,6 +2174,12 @@ label {
     flex-direction: column;
 }
 
+.field-hint {
+    margin-top: 4px;
+    font-size: 11px;
+    opacity: 0.6;
+}
+
 .inference-loading {
     position: absolute;
     right: 10px;
