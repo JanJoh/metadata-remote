@@ -37,6 +37,7 @@ from mutagen.flac import FLAC, Picture
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.asf import ASF
 from mutagen.wavpack import WavPack
+from mutagen.apev2 import TEXT as APE_TEXT
 from mutagen.wave import WAVE
 from mutagen.id3 import PictureType
 
@@ -181,7 +182,12 @@ class MutagenHandler:
             "TPE1": {
                 "primary_name": "artist",
                 "display_name": "Artist",
-                "variations": ["artist", "artists", "performer", "performers", "lead performer", "lead artist", "main artist"],
+                # Note: TPE1 is officially "Lead performer(s)/Soloist(s)" per the ID3v2 spec, but
+                # "performer" is deliberately NOT listed as a variation here. Vorbis/FLAC files use
+                # a distinct PERFORMER tag (individual musicians/roles) separate from ARTIST, and we
+                # want a custom field named "Performer" on MP3 to map to a TXXX:PERFORMER frame for
+                # the same purpose, not collapse into TPE1/Artist.
+                "variations": ["artist", "artists", "lead artist", "main artist"],
                 "versions": ["2.3", "2.4"],
                 "category": "essential"
             },
@@ -554,14 +560,14 @@ class MutagenHandler:
             logger.error(f"Error detecting format for {filepath}: {e}")
             return None, 'unknown'
 
-    # Separator used to join/split multi-value tags (e.g. genre) for display/editing
+    # Separator used to join/split multi-value tags (e.g. genre, performer) for display/editing
     MULTI_VALUE_SEPARATOR = '; '
 
     def _join_multi_value(self, values) -> str:
         """Join multiple tag values into a single display string.
 
-        Used for multi-value tags like genre so the UI can show every value
-        in a single text input separated by '; '.
+        Used for multi-value tags like genre and performer so the UI can show
+        every value in a single text input separated by '; '.
         """
         if values is None:
             return ''
@@ -570,8 +576,8 @@ class MutagenHandler:
     def _split_multi_value(self, value):
         """Split a display string on ';' into a list of values for writing.
 
-        Returns a list so multi-value tags (e.g. genre) are written as
-        separate values. Falls back to the original value (e.g. the ' '
+        Returns a list so multi-value tags (e.g. genre, performer) are written
+        as separate values. Falls back to the original value (e.g. the ' '
         placeholder) when no real content remains.
         """
         parts = [p.strip() for p in str(value).split(';')]
@@ -967,21 +973,21 @@ class MutagenHandler:
                 for field, value in custom_fields.items():
                     if field in ['art', 'removeArt']:
                         continue
-                        
+
                     # Create TXXX frame key
                     txxx_key = f'TXXX:{field}'
-                    
+
                     if not value:
                         # Use space placeholder for empty custom fields
                         value = ' '
-                    
-                    # Add or update TXXX frame
+
+                    # Add or update TXXX frame - may hold multiple values, e.g. performers
                     audio_file.tags[txxx_key] = TXXX(
                         encoding=3,  # UTF-8
                         desc=field,
-                        text=[value]
+                        text=self._split_multi_value(value)
                     )
-            
+
             elif isinstance(audio_file, (OggVorbis, OggOpus, FLAC)):
                 # Vorbis comments - handle standard fields
                 for field, value in standard_fields.items():
@@ -1022,7 +1028,8 @@ class MutagenHandler:
                     if not value:
                         audio_file[field_key] = ' '
                     else:
-                        audio_file[field_key] = value
+                        # May hold multiple values, e.g. performers
+                        audio_file[field_key] = self._split_multi_value(value)
             
             elif isinstance(audio_file, MP4):
                 # MP4 atoms - handle standard fields
@@ -1078,8 +1085,8 @@ class MutagenHandler:
                         # Use space placeholder for empty custom fields
                         value = ' '
                     
-                    # MP4 freeform atoms store bytes
-                    audio_file[key] = [value.encode('utf-8')]
+                    # MP4 freeform atoms store bytes and may hold multiple values, e.g. performers
+                    audio_file[key] = [v.encode('utf-8') for v in self._split_multi_value(value)]
             
             elif isinstance(audio_file, ASF):
                 # WMA/ASF - handle standard fields
@@ -1114,8 +1121,9 @@ class MutagenHandler:
                     
                     if not value:
                         value = ' '
-                    
-                    audio_file[field_key] = value
+
+                    # May hold multiple values, e.g. performers
+                    audio_file[field_key] = self._split_multi_value(value)
             
             elif isinstance(audio_file, WAVE):
                 # WAV uses ID3 tags in Mutagen
@@ -1192,19 +1200,19 @@ class MutagenHandler:
                 for field, value in custom_fields.items():
                     if field in ['art', 'removeArt']:
                         continue
-                        
+
                     # Create TXXX frame key
                     txxx_key = f'TXXX:{field}'
-                    
+
                     if not value:
                         # Use space placeholder for empty custom fields
                         value = ' '
-                    
-                    # Add or update TXXX frame
+
+                    # Add or update TXXX frame - may hold multiple values, e.g. performers
                     audio_file.tags[txxx_key] = TXXX(
                         encoding=3,  # UTF-8
                         desc=field,
-                        text=[value]
+                        text=self._split_multi_value(value)
                     )
             
             elif isinstance(audio_file, WavPack):
@@ -1234,11 +1242,12 @@ class MutagenHandler:
                 for field, value in custom_fields.items():
                     if field in ['art', 'removeArt']:
                         continue
-                    
+
                     if not value:
                         value = ' '
-                    
-                    audio_file[field] = value
+
+                    # May hold multiple values, e.g. performers
+                    audio_file[field] = self._split_multi_value(value)
             
             # M4B Audiobook Format Handling
             # M4B files require special treatment:
@@ -1636,7 +1645,8 @@ class MutagenHandler:
             
             # Handle different frame types
             if hasattr(frame, 'text'):
-                text_value = str(frame.text[0]) if frame.text else ''
+                # Text frames (including TXXX) may hold multiple values, e.g. performers
+                text_value = self._join_multi_value(frame.text) if frame.text else ''
                 field_info['value'] = text_value
             elif frame_id.startswith('APIC') or hasattr(frame, 'data'):
                 field_info['value'] = 'Unsupported Content type'
@@ -1645,7 +1655,7 @@ class MutagenHandler:
             elif frame_id.startswith('TXXX:'):
                 # Handle TXXX frames specially
                 if hasattr(frame, 'text'):
-                    text_value = str(frame.text[0]) if frame.text else ''
+                    text_value = self._join_multi_value(frame.text) if frame.text else ''
                     field_info['value'] = text_value
                 else:
                     field_info['value'] = str(frame)
@@ -1693,22 +1703,22 @@ class MutagenHandler:
                 'field_type': 'text'
             }
             
-            # Vorbis comments can be lists
+            # Vorbis comments can be lists holding multiple values, e.g. performers
             if isinstance(value, list):
-                text_value = str(value[0]) if value else ''
+                text_value = self._join_multi_value(value)
             else:
                 text_value = str(value)
-            
+
             field_info['value'] = text_value
-            
+
             # Validate before adding
             if not self._is_valid_field(field_name, field_info.get('value', '')):
                 continue
-            
+
             fields[field_name] = field_info
-        
+
         return fields
-    
+
     def _discover_mp4_fields(self, audio_file) -> Dict[str, Dict[str, Any]]:
         """Discover all MP4 atom fields"""
         fields = {}
@@ -1738,17 +1748,16 @@ class MutagenHandler:
                     # Track/disc numbers
                     field_info['value'] = str(value[0][0]) if value[0][0] else ''
                 elif isinstance(value[0], bytes):
-                    # Binary data or text
+                    # Binary data or text - freeform atoms may hold multiple values, e.g. performers
                     try:
-                        text_value = value[0].decode('utf-8')
+                        text_value = self._join_multi_value(v.decode('utf-8') for v in value)
                         field_info['value'] = text_value
                     except:
                         field_info['value'] = 'Unsupported Content type'
                         field_info['is_editable'] = False
                         field_info['field_type'] = 'binary'
                 else:
-                    text_value = str(value[0])
-                    field_info['value'] = text_value
+                    field_info['value'] = self._join_multi_value(value)
             else:
                 field_info['value'] = str(value)
             
@@ -1786,9 +1795,11 @@ class MutagenHandler:
                 'field_type': 'text'
             }
             
-            # Handle ASF value types
+            # Handle ASF value types - attributes may hold multiple values, e.g. performers
             if isinstance(value, list) and value:
-                text_value = str(value[0].value) if hasattr(value[0], 'value') else str(value[0])
+                text_value = self._join_multi_value(
+                    v.value if hasattr(v, 'value') else v for v in value
+                )
             else:
                 text_value = str(value.value) if hasattr(value, 'value') else str(value)
             
@@ -1824,22 +1835,26 @@ class MutagenHandler:
                 'field_type': 'text'
             }
             
-            # APEv2 tags can be lists
-            if isinstance(value, list):
-                text_value = str(value[0]) if value else ''
+            # APEv2 text values may hold multiple values, e.g. performers - iterate via
+            # list() since APETextValue isn't itself a Python list. Binary/external
+            # values aren't iterable this way, so fall back to str() for those.
+            if getattr(value, 'kind', APE_TEXT) == APE_TEXT:
+                text_value = self._join_multi_value(list(value))
             else:
-                text_value = str(value)
-            
+                text_value = 'Unsupported Content type'
+                field_info['is_editable'] = False
+                field_info['field_type'] = 'binary'
+
             field_info['value'] = text_value
-            
+
             # Validate before adding
             if not self._is_valid_field(field_name, field_info.get('value', '')):
                 continue
-            
+
             fields[field_name] = field_info
-        
+
         return fields
-    
+
     def _get_id3_display_name(self, frame_id: str) -> str:
         """Convert ID3 frame IDs to human-readable names"""
         # First check our comprehensive mappings
@@ -2011,10 +2026,11 @@ class MutagenHandler:
                 
                 txxx_key = f'TXXX:{field_name}'
                 if field_value:
+                    # May hold multiple values, e.g. performers
                     audio_file.tags[txxx_key] = TXXX(
                         encoding=3,
                         desc=field_name,
-                        text=[field_value]
+                        text=self._split_multi_value(field_value)
                     )
                 else:
                     if txxx_key in audio_file.tags:
@@ -2044,11 +2060,11 @@ class MutagenHandler:
             txxx_key = f'TXXX:{field_name}'
             
             if field_value:
-                # Add or update TXXX frame for custom fields
+                # Add or update TXXX frame for custom fields - may hold multiple values, e.g. performers
                 tags[txxx_key] = TXXX(
                     encoding=3,  # UTF-8
                     desc=field_name,
-                    text=[field_value]
+                    text=self._split_multi_value(field_value)
                 )
             else:
                 # Remove field if empty value
@@ -2070,15 +2086,16 @@ class MutagenHandler:
             field_key = field_name.upper()
             
             if field_value:
-                audio_file[field_key] = field_value
+                # May hold multiple values, e.g. performers
+                audio_file[field_key] = self._split_multi_value(field_value)
             else:
                 # Remove field if empty value
                 if field_key in audio_file:
                     del audio_file[field_key]
-            
+
             audio_file.save()
             return True
-            
+
         except Exception as e:
             logger.error(f"Error writing custom Vorbis field: {e}")
             return False
@@ -2091,8 +2108,8 @@ class MutagenHandler:
             key = f"----:com.apple.iTunes:{field_name}"
             
             if field_value:
-                # MP4 freeform atoms store bytes
-                audio_file[key] = [field_value.encode('utf-8')]
+                # MP4 freeform atoms store bytes and may hold multiple values, e.g. performers
+                audio_file[key] = [v.encode('utf-8') for v in self._split_multi_value(field_value)]
             else:
                 # Remove field if empty value
                 if key in audio_file:
@@ -2112,15 +2129,16 @@ class MutagenHandler:
             field_key = f"WM/{field_name}" if not field_name.startswith('WM/') else field_name
             
             if field_value:
-                audio_file[field_key] = field_value
+                # May hold multiple values, e.g. performers
+                audio_file[field_key] = self._split_multi_value(field_value)
             else:
                 # Remove field if empty value
                 if field_key in audio_file:
                     del audio_file[field_key]
-            
+
             audio_file.save()
             return True
-            
+
         except Exception as e:
             logger.error(f"Error writing custom ASF field: {e}")
             return False
@@ -2128,9 +2146,9 @@ class MutagenHandler:
     def _write_custom_apev2_field(self, audio_file, field_name: str, field_value: str) -> bool:
         """Write custom field to APEv2 (WavPack)"""
         try:
-            # APEv2 tags are straightforward
+            # APEv2 tags are straightforward - may hold multiple values, e.g. performers
             if field_value:
-                audio_file[field_name] = field_value
+                audio_file[field_name] = self._split_multi_value(field_value)
             else:
                 # Remove field if empty value
                 if field_name in audio_file:
