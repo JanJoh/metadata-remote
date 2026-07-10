@@ -76,8 +76,11 @@
         'track title': 'title',
         
         // Artist variations
+        // Note: "performer" is deliberately NOT mapped to artist here. FLAC/Vorbis files use a
+        // distinct PERFORMER tag (individual musicians/roles, e.g. "Roy Bittan (piano)") separate
+        // from ARTIST, and typing "Performer" as a field name should create/edit that custom field
+        // rather than silently redirecting into the Artist field.
         'artist': 'artist',
-        'performer': 'artist',
         'track artist': 'artist',
         
         // Album variations
@@ -935,14 +938,21 @@
                                      ${fieldInfo.field_type === 'binary' ? 'disabled' : ''}>`;
             }
             
+            // Hint for multi-value custom fields (performer supports several values separated by "; ",
+            // matching the FLAC/Vorbis PERFORMER convention for crediting individual musicians)
+            const baseFieldName = fieldId.replace(/^TXXX:/i, '').replace(/^----:[^:]*:/i, '').replace(/^WM\//i, '');
+            const fieldHint = baseFieldName.toLowerCase() === 'performer'
+                ? `<div class="field-hint">Separate multiple performers with "; " (e.g. Roy Bittan (piano); Max Weinberg (drums))</div>`
+                : '';
+
             const fieldHtml = `
                 <div class="form-group-with-button dynamic-field" data-field-id="${escapeHtml(fieldId)}" data-safe-id="${safeId}">
                     <div class="form-group-wrapper">
                         <div class="label-with-delete">
                             <label for="dynamic-${safeId}">${escapeHtml(fieldInfo.display_name)}</label>
-                            <button type="button" class="delete-field-btn" 
+                            <button type="button" class="delete-field-btn"
                                     data-field-id="${escapeHtml(fieldId)}"
-                                    onclick="window.MetadataRemote.Metadata.Editor.deleteField(this.getAttribute('data-field-id'))" 
+                                    onclick="window.MetadataRemote.Metadata.Editor.deleteField(this.getAttribute('data-field-id'))"
                                     title="Delete this metadata field">
                                 <span>⊖</span>
                             </button>
@@ -954,6 +964,7 @@
                             </div>
                             <div class="inference-suggestions" id="dynamic-${safeId}-suggestions"></div>
                         </div>
+                        ${fieldHint}
                     </div>
                     ${fieldInfo.is_editable ? `
                         <div class="apply-field-controls" data-field="${escapeHtml(fieldId)}">
