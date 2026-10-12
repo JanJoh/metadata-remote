@@ -1,5 +1,23 @@
 # <img src="screenshots/mdrm-icon-for-light-bg.svg" alt="Alt Text" width="25" height="21"> Metadata Remote (mdrm) v1.2.0
 
+> **This is a modified version** of [metadata-remote](https://github.com/wow-signal-dev/metadata-remote)
+> by Dr. William Nelson Leonard, maintained by [JanJoh](https://github.com/JanJoh) as the base of the
+> [Metadata Remote Home Assistant add-on](https://github.com/JanJoh/ha-addons). Like the original, it
+> is licensed under the **GNU Affero General Public License v3.0** (see [LICENSE](LICENSE)).
+>
+> **Modifications** (see the commit history for the full changes):
+>
+> - 2026-06-25: allow embedding in a same-origin iframe (`X-Frame-Options: SAMEORIGIN`, CSP
+>   `frame-ancestors 'self'`) for Home Assistant ingress.
+> - 2026-06-25: honour the Home Assistant ingress base path (`X-Ingress-Path` → `SCRIPT_NAME`).
+> - 2026-06-25: always show the standard metadata fields; suggest well-known tag names for custom fields.
+> - 2026-06-27: multi-value genre support (all formats).
+> - 2026-07-10: multi-value performer support.
+> - 2026-10-12: the help panel links to the source of this modified version.
+>
+> Each add-on release is built from a tag here with the same version number (add-on 1.2.11 → tag
+> `v1.2.11`), so the complete source of any release can be checked out.
+
 Web-based audio metadata editor for headless servers.
 
 Edit audio file metadata through a browser interface, designed for servers without desktop environments.
